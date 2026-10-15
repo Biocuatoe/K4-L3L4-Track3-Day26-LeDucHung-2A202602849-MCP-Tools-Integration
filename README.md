@@ -7,7 +7,10 @@
 ```
 day26-mcp/
 ├── README.md                ← Bạn đang đọc file này
-├── requirements.txt         ← pip install -r requirements.txt
+├── requirements.txt         ← pip install -r requirements.txt (runtime)
+├── requirements-dev.txt     ← + pytest, ruff
+├── tests/                   ← test offline cho Module 01–03
+├── docs/VALIDATION.md       ← báo cáo kiểm thử đã thực thi
 │
 ├── 01-function-calling/     ← Bước 1: Function Calling thuần (Gemini SDK)
 │   ├── README.md
@@ -38,25 +41,65 @@ day26-mcp/
 
 ## Quick start
 
-```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+**Yêu cầu:** Python 3.10+ (đã kiểm thử trên 3.11) cho Module 01–03; Lab 04 dùng [uv](https://docs.astral.sh/uv/) và môi trường riêng
+(server: Python ≥3.10, client ADK: Python ≥3.12 — uv tự tải đúng phiên bản).
 
-# MCP demo (không cần API key)
-cd 02-mcp-basics && python weather_client.py
+```powershell
+# Windows PowerShell
+python -m venv .venv; .\.venv\Scripts\Activate.ps1
+pip install -r requirements-dev.txt
 
-# Function Calling (cần Gemini API key)
-export GEMINI_API_KEY=...
-cd 01-function-calling && python weather_function_calling.py
+# Module 02 — MCP (không cần API key)
+python 02-mcp-basics/weather_client.py
 
-# Production — Auth (2 terminal)
-cd 03-production
-python auth_server.py              # terminal 1
-python auth_client.py              # terminal 2
+# Module 01 — Function Calling (cần Gemini API key; SDK chấp nhận GEMINI_API_KEY hoặc GOOGLE_API_KEY)
+$env:GEMINI_API_KEY = "<key-của-bạn>"
+python 01-function-calling/weather_function_calling.py
 
-# Production — Tool Registry
-cd 03-production && python registry_client.py
+# Module 03 — Auth (2 terminal; token do BẠN đặt, không có token mặc định)
+$env:MCP_AUTH_TOKEN = "<chuỗi-bí-mật-bất-kỳ>"
+python 03-production/auth_server.py            # terminal 1
+python 03-production/auth_client.py            # terminal 2 (cùng MCP_AUTH_TOKEN)
+
+# Module 03 — Registry và Versioning
+python 03-production/registry_client.py
+python 03-production/versioned_client.py
 ```
+
+```bash
+# bash / macOS / Linux
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements-dev.txt
+export GEMINI_API_KEY=...            # Module 01
+export MCP_AUTH_TOKEN=...            # Module 03 auth (server và client)
+```
+
+> Console Windows dùng cp1252 mặc định: các script đã tự `reconfigure(encoding="utf-8")` để in được tiếng Việt.
+
+### Lab 04 (thứ tự khởi động)
+
+1. Tạo `04-lab/mcp-server/.env` (`WEATHERAPI_KEY=...`, tuỳ chọn `PORT=8085`) và `04-lab/mcp-client/.env` (`GOOGLE_API_KEY=...`, tuỳ chọn `MCP_SERVER_URL`). Cả hai file đã được `.gitignore`.
+2. Terminal 1: `cd 04-lab/mcp-server; uv sync --frozen; uv run --frozen --env-file .env python weather.py`
+3. Terminal 2: `cd 04-lab/mcp-client; uv sync --frozen; uv run python verify_setup.py` (kiểm tra MCP thật), rồi `uv run adk web`.
+
+Chi tiết: [04-lab/README.md](04-lab/README.md).
+
+### Chạy test
+
+```powershell
+python -m pytest                                   # test offline ở thư mục gốc (Module 01–03)
+cd 04-lab/mcp-server; uv run --frozen pytest       # Lab 04 server (WeatherAPI được mock)
+cd 04-lab/mcp-client; uv run --frozen pytest       # Lab 04 verifier + agent
+ruff check .                                       # lint
+```
+
+Test mặc định KHÔNG cần API key, mạng, hay dịch vụ đang chạy. Kiểm thử live (WeatherAPI/Gemini) là thao tác thủ công — xem [docs/VALIDATION.md](docs/VALIDATION.md).
+
+### Ghi chú an toàn / phạm vi
+
+- Dữ liệu thời tiết ở Module 01–03 là **MOCK** (dạy học), không phải quan sát thực tế. Chỉ Lab 04 dùng dữ liệu thật (WeatherAPI).
+- Xác thực ở `auth_server.py` là **DEMO**: token tĩnh lấy từ biến môi trường. Production cần JWT/OAuth (xem 03-production/README.md).
+- Không commit `.env`; không in API key vào log.
 
 ---
 

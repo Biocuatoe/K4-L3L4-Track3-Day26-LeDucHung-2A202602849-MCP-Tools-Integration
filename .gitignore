@@ -7,3 +7,10 @@ venv/
 .adk/
 *.db
 **/.DS_Store
+# test / lint caches
+.pytest_cache/
+.ruff_cache/
+
+# secrets: keep only placeholder templates
+.env.*
+!.env.example

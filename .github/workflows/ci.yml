@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+# Chỉ chạy kiểm tra OFFLINE: không dùng Gemini/WeatherAPI, không cần secret hay file .env.
+jobs:
+  root-modules:
+    name: Modules 01-03 (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+      - name: Compile all sources
+        run: python -m compileall -q 01-function-calling 02-mcp-basics 03-production 04-lab tests
+      - name: Lint
+        run: ruff check .
+      - name: Validate registry.json
+        run: python -c "import json; json.load(open('03-production/registry.json', encoding='utf-8'))"
+      - name: Offline tests
+        run: python -m pytest -q
+
+  lab-server:
+    name: Lab 04 MCP server
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: 04-lab/mcp-server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --frozen
+      - run: uv run --frozen pytest -q
+
+  lab-client:
+    name: Lab 04 ADK client
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: 04-lab/mcp-client
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --frozen
+      - run: uv run --frozen pytest -q

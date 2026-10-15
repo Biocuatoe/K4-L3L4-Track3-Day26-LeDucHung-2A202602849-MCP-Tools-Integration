@@ -15,14 +15,23 @@ Cách chạy (cùng thư mục với weather_server.py, client tự khởi độ
 
 import asyncio
 import sys
+from pathlib import Path
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 
+SERVER_SCRIPT = Path(__file__).resolve().parent / "weather_server.py"
+
+
+def server_params() -> StdioServerParameters:
+    # Dùng đúng interpreter đang chạy client và đường dẫn tuyệt đối tới server
+    # => chạy được từ bất kỳ thư mục làm việc nào.
+    return StdioServerParameters(command=sys.executable, args=[str(SERVER_SCRIPT)])
+
+
 async def main() -> None:
-    # Dùng đúng interpreter đang chạy client (tránh lỗi "python" không tồn tại)
-    params = StdioServerParameters(command=sys.executable, args=["weather_server.py"])
+    params = server_params()
 
     async with stdio_client(params) as (read, write):
         async with ClientSession(read, write) as session:
@@ -38,8 +47,13 @@ async def main() -> None:
             for city in ["Hanoi", "Danang", "Haiphong"]:
                 result = await session.call_tool("get_weather", {"city": city})
                 print(f"\ncall_tool get_weather(city={city!r}):")
-                print("  ->", result.content[0].text)
+                if result.is_error:
+                    print("  [LỖI từ tool]", result.content[0].text)
+                else:
+                    print("  ->", result.content[0].text)
 
 
 if __name__ == "__main__":
+    if hasattr(sys.stdout, "reconfigure"):  # console Windows mặc định không phải UTF-8
+        sys.stdout.reconfigure(encoding="utf-8")
     asyncio.run(main())

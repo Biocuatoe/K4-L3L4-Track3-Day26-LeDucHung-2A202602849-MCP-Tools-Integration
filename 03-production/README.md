@@ -25,14 +25,18 @@
 
 Server chạy qua **Streamable HTTP** thay vì stdio, kèm bearer token verification.
 
-```bash
-# Terminal 1 — khởi động server
-python auth_server.py
-# Server lắng nghe tại http://localhost:8000/mcp
+```powershell
+# Token do BẠN tự đặt (không có token mặc định trong repo)
+$env:MCP_AUTH_TOKEN = "<chuỗi-bí-mật-bất-kỳ>"      # bash: export MCP_AUTH_TOKEN=...
 
-# Terminal 2 — client kết nối kèm token
+# Terminal 1 — khởi động server (mặc định 127.0.0.1:8000; đổi bằng MCP_HOST / MCP_PORT)
+python auth_server.py
+
+# Terminal 2 — client kết nối kèm token (cùng MCP_AUTH_TOKEN)
 python auth_client.py
 ```
+
+> Cổng 8000 trùng cổng mặc định của `adk web` (Lab 04) — đặt `MCP_PORT` khác nếu chạy cùng lúc.
 
 Luồng:
 
@@ -49,10 +53,18 @@ Client                                Server
   │◀── 401 Unauthorized ───────────────  │
 ```
 
-- Token hợp lệ → truy cập tool bình thường
-- Thiếu token → `401`
-- Token sai → `403`
-- Logic tool không biết gì về auth — SDK xử lý ở tầng transport
+Hành vi đã kiểm chứng bằng test (`tests/test_auth.py`, server uvicorn thật):
+
+| Tình huống | Kết quả |
+|---|---|
+| Token hợp lệ có scope `weather:read` | `200`, khám phá và gọi tool bình thường |
+| Thiếu header `Authorization` | `401` |
+| Token sai, sai scheme (`Basic`/`Token`), không có `Bearer` | `401` |
+| Token hợp lệ nhưng **thiếu scope** `weather:read` (`MCP_LIMITED_TOKEN`) | `403` |
+
+- Logic tool không biết gì về auth — SDK xử lý ở tầng transport.
+- **Phân quyền chỉ ở mức endpoint**: `AuthSettings(required_scopes=["weather:read"])` buộc MỌI request phải có scope này. Việc lưu scope trong token KHÔNG tự động phân quyền riêng từng tool; muốn vậy phải tự kiểm tra scope trong từng tool.
+- **Đây là DEMO, không phải xác thực production**: token tĩnh từ biến môi trường, không hết hạn, không thu hồi, không kiểm tra audience. Production cần JWT/OAuth 2.1 qua identity provider, HTTPS, và xoay vòng key.
 
 ---
 
@@ -165,3 +177,19 @@ versioned_client.py                     versioned_server.py
 ```
 
 Client thông minh đọc `server://info` để biết tool nào deprecated, tự chọn dùng v2 nếu có, fallback v1 nếu không.
+
+---
+
+## Ghi chú về cài đặt hiện tại
+
+**Registry** (`registry_client.py`):
+- `best_match` chọn version semantic cao nhất trong các tool **không deprecated**; nếu tất cả deprecated thì chọn bản cao nhất trong số đó; trùng version thì chọn theo tên (ổn định).
+- `ToolRegistry` ném `RegistryError` cho JSON hỏng, thiếu trường, version sai; `connect_and_call` kiểm tra tham số bắt buộc, server chưa định nghĩa, transport không hỗ trợ, tool trả lỗi, thiếu biến token — thông điệp lỗi không chứa token.
+- Đường dẫn script tương đối được tính từ thư mục chứa `registry.json` (chạy được từ mọi cwd). Thiếu biến môi trường token → lỗi rõ ràng (không còn token mặc định).
+- Server `email-service` và `db-gateway` là cấu hình **giả định**, chỉ để minh hoạ tìm kiếm; không có dịch vụ thật.
+
+**Versioning** (`versioned_server.py`):
+- `get_weather` (v1) giữ nguyên hợp đồng; `get_weather_v2` thêm `include_forecast`, `units` (mặc định `celsius`).
+- Khi `units="fahrenheit"`, **cả `temp` lẫn mọi `forecast[].temp`** được đổi sang °F (trước đây forecast vẫn là °C). Đơn vị khác `celsius`/`fahrenheit` bị từ chối (`isError`).
+- Migrate client v1 → v2: đọc `server://info` (`deprecated_tools`, `migration_guide`), đổi tên tool sang `get_weather_v2`, giữ `city`, parse kết quả là JSON thay vì chuỗi.
+- Dữ liệu là mock.

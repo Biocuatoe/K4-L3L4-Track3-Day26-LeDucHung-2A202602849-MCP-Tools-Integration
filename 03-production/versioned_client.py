@@ -3,13 +3,14 @@
 import asyncio
 import json
 import sys
+from pathlib import Path
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 
 async def main() -> None:
-    params = StdioServerParameters(command=sys.executable, args=["versioned_server.py"])
+    params = StdioServerParameters(command=sys.executable, args=[str(Path(__file__).resolve().parent / "versioned_server.py")])
 
     async with stdio_client(params) as (read, write):
         async with ClientSession(read, write) as session:
@@ -39,9 +40,11 @@ async def main() -> None:
                 "include_forecast": True,
                 "units": "celsius",
             })
-            print(f"[v2] get_weather_v2('Hanoi', forecast=True):")
+            print("[v2] get_weather_v2('Hanoi', forecast=True):")
             print(f"  {json.dumps(json.loads(r2.content[0].text), indent=2, ensure_ascii=False)}")
 
 
 if __name__ == "__main__":
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
     asyncio.run(main())

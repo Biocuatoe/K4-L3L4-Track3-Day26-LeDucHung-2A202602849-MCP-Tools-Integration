@@ -17,7 +17,7 @@ User hỏi  →  Model quyết định gọi get_weather(city="Hà Nội")
 
 ```bash
 pip install -r ../requirements.txt
-export GEMINI_API_KEY=...
+export GEMINI_API_KEY=...      # hoặc GOOGLE_API_KEY (PowerShell: $env:GEMINI_API_KEY = "...")
 python weather_function_calling.py
 ```
 
@@ -203,3 +203,13 @@ while resp.function_calls:
 **MCP giải quyết tất cả các vấn đề trên** → xem [02-mcp-basics/](../02-mcp-basics/)
 
 Bước tiếp theo: [02-mcp-basics/](../02-mcp-basics/) — tách tool ra MCP server độc lập.
+
+---
+
+## Ghi chú về cài đặt hiện tại
+
+- **Dữ liệu là mock**: `get_weather` trả JSON có trường `"nguồn": "mock"`; đây không phải quan sát thời tiết thật.
+- **Model**: mặc định `gemini-3.8-flash` (đổi bằng biến `GEMINI_MODEL`). `gemini-2.5-flash` trả `404 NOT_FOUND` với API key mới nên đã bỏ.
+- **Phân biệt "model yêu cầu" và "app thực thi"**: `execute_tool_call()` tra bảng `TOOL_REGISTRY`, kiểm tra tham số, và LUÔN trả `{"result": ...}` hoặc `{"error": ...}` (tool lạ, thiếu/thừa tham số, lỗi trong tool) để model giải thích lỗi thay vì làm sập app.
+- **Giới hạn vòng lặp**: `MAX_TOOL_ROUNDS = 5` — vượt quá sẽ ném `RuntimeError` thay vì lặp vô hạn.
+- **Test không tốn quota**: `python -m pytest tests/test_function_calling.py` dùng client giả cho model.

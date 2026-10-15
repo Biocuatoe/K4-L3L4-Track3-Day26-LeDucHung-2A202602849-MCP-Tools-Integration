@@ -254,3 +254,21 @@ claude mcp add weather -- python /đường/dẫn/tới/weather_server.py
 ```
 
 Bước tiếp theo: [03-production/](../03-production/) — Auth, Tool Registry, Versioning.
+
+---
+
+## Luồng request MCP (đã kiểm chứng bằng test)
+
+```
+weather_client.py                         weather_server.py (subprocess, stdio)
+  │ stdio_client(StdioServerParameters)  ─▶ khởi động bằng sys.executable + đường dẫn tuyệt đối
+  │── initialize ───────────────────────▶ │ server trả serverInfo + capabilities
+  │── tools/list ───────────────────────▶ │ [{name: get_weather, inputSchema: {city: string, required}}]
+  │── tools/call get_weather {city} ────▶ │ server THỰC THI hàm
+  │◀── content[0].text / isError ──────── │
+```
+
+- Server chỉ ghi giao thức lên stdout; log chẩn đoán phải đi stderr.
+- Tham số sai (thiếu `city`, sai kiểu) hoặc tool lạ → `is_error=True` (khác với kết quả thành công).
+- Client dùng đường dẫn tuyệt đối tới server nên chạy được từ mọi thư mục.
+- Test: `python -m pytest tests/test_mcp_basics.py` (in-process + subprocess stdio thật).

@@ -18,13 +18,15 @@ import json
 from datetime import datetime, timezone
 
 from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
 
 SERVER_VERSION = "2.0.0"
 
 mcp = MCPServer(
     "weather-v2",
     instructions=f"Weather MCP Server v{SERVER_VERSION}. "
-    "Hỗ trợ get_weather (v1, backward compat) và get_weather_v2 (chi tiết hơn).",
+    "Hỗ trợ get_weather (v1, backward compat) và get_weather_v2 (chi tiết hơn). "
+    "Dữ liệu là mô phỏng.",
 )
 
 _MOCK_DB = {
@@ -51,6 +53,16 @@ _MOCK_DB = {
 }
 
 
+SUPPORTED_UNITS = {"celsius", "fahrenheit"}
+
+
+def _convert_temp(celsius: float, unit: str) -> float:
+    """Dữ liệu gốc lưu bằng °C; đổi sang *unit* khi cần."""
+    if unit == "fahrenheit":
+        return round(celsius * 9 / 5 + 32, 1)
+    return celsius
+
+
 # ── Tool v1 (giữ nguyên cho backward compatibility) ──────────────────
 @mcp.tool()
 def get_weather(city: str) -> str:
@@ -73,8 +85,16 @@ def get_weather_v2(
     Args:
         city: Tên thành phố (ví dụ: Hanoi, Danang)
         include_forecast: Có trả thêm dự báo 2 ngày tới không (mặc định: False)
-        units: Đơn vị nhiệt độ — "celsius" hoặc "fahrenheit" (mặc định: celsius)
+        units: Đơn vị nhiệt độ — "celsius" hoặc "fahrenheit" (mặc định: celsius).
+            Giá trị khác bị từ chối (tool trả lỗi). Áp dụng cho cả temp lẫn forecast.
     """
+    unit = units.strip().lower() if isinstance(units, str) else units
+    if unit not in SUPPORTED_UNITS:
+        # Từ chối rõ ràng thay vì lặng lẽ trả về số liệu sai đơn vị
+        raise ToolError(
+            f"units không được hỗ trợ: {units!r}. Chọn một trong {sorted(SUPPORTED_UNITS)}"
+        )
+
     data = _MOCK_DB.get(city)
     if not data:
         return json.dumps(
@@ -82,22 +102,21 @@ def get_weather_v2(
             ensure_ascii=False,
         )
 
-    temp = data["temp"]
-    if units == "fahrenheit":
-        temp = round(temp * 9 / 5 + 32, 1)
-
     result: dict = {
         "api_version": "2.0",
         "city": city,
-        "temp": temp,
-        "units": units,
+        "temp": _convert_temp(data["temp"], unit),
+        "units": unit,
         "condition": data["condition"],
         "humidity": data["humidity"],
         "wind_speed_kmh": data["wind_speed"],
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
     if include_forecast:
-        result["forecast"] = data["forecast"]
+        # Chuyển đổi MỌI nhiệt độ (cả forecast) sang cùng đơn vị với `temp`
+        result["forecast"] = [
+            {**day, "temp": _convert_temp(day["temp"], unit)} for day in data["forecast"]
+        ]
 
     return json.dumps(result, ensure_ascii=False)
 

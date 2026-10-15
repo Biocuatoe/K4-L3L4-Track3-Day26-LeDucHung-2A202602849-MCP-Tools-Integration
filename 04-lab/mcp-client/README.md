@@ -101,11 +101,7 @@ connection_params = StreamableHTTPConnectionParams(
     timeout=30.0,
 )
 
-root_agent = Agent(
-    name="weather_agent",
-    model="gemini-2.5-flash",
-    tools=[weather_tools],
-)
+root_agent = build_agent()   # Agent(model=GEMINI_MODEL or "gemini-3.8-flash", tools=[McpToolset(...)])
 ```
 
 ## Troubleshooting
@@ -123,17 +119,24 @@ root_agent = Agent(
 3. **Timeout errors**: Server not started
    - Start the MCP server first, then the ADK client
 
-### Fallback Mode
+### Failure behaviour (no silent fallback)
 
-If MCP connection fails, the agent runs in fallback mode without tools.
-Fix the connection and restart ADK web.
+`McpToolset` connects lazily, so creating it does not prove the server works. Use `uv run python verify_setup.py`
+(MCP initialize → list_tools → `health_check`). If the toolset cannot even be constructed, `weather_agent` raises
+`RuntimeError`. Set `ALLOW_NO_TOOLS_FALLBACK=1` only if you deliberately want a degraded agent with no tools; it
+then reports `AGENT_MODE == "degraded"`, logs an error, and instructs the model to say weather is unavailable.
+If the server is down at request time, ADK surfaces the connection error for that request.
 
 ## Environment Variables
 
-Create `.env` file:
+Create `mcp-client/.env` (git-ignored; never commit it):
 ```bash
-GOOGLE_API_KEY=your_gemini_api_key
+GOOGLE_API_KEY=<your Gemini key>
+MCP_SERVER_URL=http://localhost:8085/mcp    # optional
+GEMINI_MODEL=gemini-3.8-flash               # optional
 ```
+Note: `gemini-2.5-flash` is no longer available to new API keys (HTTP 404). Run `adk web` from `mcp-client`
+(port 8000), so do not run the Module 03 auth server on 8000 at the same time.
 
 ## Resources
 
