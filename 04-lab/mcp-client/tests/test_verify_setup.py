@@ -11,7 +11,7 @@ from mcp.server.fastmcp import FastMCP
 
 import verify_setup as vs
 
-FAKE_KEY = "AIza-fake-key-for-tests-0123456789"
+FAKE_KEY = "fake-gemini-key-for-tests-0123456789"
 
 
 def free_port():
