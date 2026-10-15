@@ -68,13 +68,16 @@ tracked, no secret-like strings in tracked files).
    Module 01 and the ADK agent were changed to `gemini-3.8-flash` (override with `GEMINI_MODEL`). Several attempts hit
    transient `503 UNAVAILABLE` ("high demand") before succeeding; this was a provider-side condition, not a code failure.
 
+## CI
+
+GitHub Actions (`.github/workflows/ci.yml`, offline only): the first run on commit `71ca066` **failed** — the repo-hygiene test flagged a secret-shaped *fake* key in a test file (it had passed locally only because the new file was not yet tracked). Commit `5e1e08e` fixed the fixture and the run on it **succeeded** (root modules on Python 3.11 and 3.12, Lab 04 server, Lab 04 client).
+
 ## Blocked / not run
 
 | Item | Status | Reason / next step |
 |---|---|---|
 | Docker image build + container smoke test | **Blocked** | `docker build` failed: Docker Desktop daemon not running (`npipe:////./pipe/dockerDesktopLinuxEngine` not found). The Dockerfile was rewritten (uv + `uv.lock`, non-root, `HOST=0.0.0.0`, `.dockerignore`) but is **untested**. Start Docker Desktop, then `cd 04-lab/mcp-server; docker build -t weather-mcp .` |
 | Cloud Run deployment | **Not run** | Public/billable; deliberately not attempted. Instructions in `04-lab/README.md` |
-| GitHub Actions status | See final report | Workflow added in `.github/workflows/ci.yml`; status is only recorded after it has actually run on GitHub |
 | `adk web` browser UI | **Not run** | The ADK runner path (same agent object) was exercised programmatically instead |
 
 ## Known limitations
